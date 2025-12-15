@@ -26,11 +26,11 @@ export default function CustomizerPage() {
     const [state, setState] = useState<SelectionState>({
         baseIndex: 0,
         slots: { A: null, B: null, C: null }, // Initialize with empty slots
-        zoom: 1,
+        zoom: 0.65,
     });
+    const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
     const canvasRef = useRef<HTMLCanvasElement>(null);
-    const [isLoaded, setIsLoaded] = useState(false);
 
     // Constants
     const CANVAS_SIZE = 800; // Internal resolution
@@ -38,9 +38,9 @@ export default function CustomizerPage() {
     // Coordinates for Charms (Approximate based on vertical stacking assumption)
     // These are relative percentages (0.0 to 1.0) of the canvas size
     const CHARM_POSITIONS = {
-        C: { x: 0.5, y: 0.35, scale: 0.15 }, // Top
-        B: { x: 0.5, y: 0.5, scale: 0.15 },  // Middle
-        A: { x: 0.5, y: 0.65, scale: 0.15 }, // Bottom
+        C: { x: 0.5, y: 0.31, scale: 0.28 }, // Top
+        B: { x: 0.5, y: 0.58, scale: 0.28 },  // Middle
+        A: { x: 0.5, y: 0.85, scale: 0.28 }, // Bottom
     };
 
     // Helper to load image
@@ -125,6 +125,14 @@ export default function CustomizerPage() {
                 await drawCharm('B');
                 await drawCharm('C');
 
+                // Update Preview URL after render
+                // Small delay to ensure paint
+                setTimeout(() => {
+                    if (canvasRef.current) {
+                        setPreviewUrl(canvasRef.current.toDataURL("image/png"));
+                    }
+                }, 100);
+
             } catch (err) {
                 console.error("Failed to render canvas", err);
             }
@@ -133,16 +141,14 @@ export default function CustomizerPage() {
         };
 
         render();
-    }, [state]);
+    }, [state]); // Re-run only when state changes
 
     // Actions
     const handleDownload = () => {
-        const canvas = canvasRef.current;
-        if (!canvas) return;
-        const dataUrl = canvas.toDataURL("image/png");
+        if (!previewUrl) return;
         const link = document.createElement("a");
         link.download = `ongoing-keychain-${Date.now()}.png`;
-        link.href = dataUrl;
+        link.href = previewUrl;
         link.click();
     };
 
@@ -158,6 +164,7 @@ export default function CustomizerPage() {
             `🐶 Slot A (Bawah): ${charmA}\n` +
             `🐱 Slot B (Tengah): ${charmB}\n` +
             `🐰 Slot C (Atas): ${charmC}\n\n` +
+            `*Gambar desain saya lampirkan manual setelah pesan ini.*\n` +
             `Mohon info total harganya ya! Terima kasih.`;
 
         const encodedText = encodeURIComponent(text);
@@ -169,7 +176,7 @@ export default function CustomizerPage() {
             setState({
                 baseIndex: 0,
                 slots: { A: null, B: null, C: null },
-                zoom: 1
+                zoom: 0.65
             });
         }
     };
@@ -210,19 +217,25 @@ export default function CustomizerPage() {
         </div>
     );
 
+    const getCharmThumb = (slot: CharmSlot) => {
+        const idx = state.slots[slot];
+        if (idx === null) return null;
+        return ASSETS.animals[idx];
+    };
+
     return (
-        <div className="min-h-screen bg-gray-50 flex flex-col font-sans">
+        <div className="min-h-screen bg-gray-50 flex flex-col">
             <Navbar />
 
             <main className="flex-grow pt-24 pb-10 px-4 sm:px-6 lg:px-8 max-w-[1600px] mx-auto w-full h-full">
                 <h1 className="sr-only">Studio Kustomisasi Keychain</h1>
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 h-full">
+                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 h-full items-start">
 
                     {/* LEFT COLUMN: BASE SELECTION */}
-                    <div className="lg:col-span-3 lg:h-[calc(100vh-8rem)] lg:overflow-y-auto custom-scrollbar">
+                    <div className="lg:col-span-3">
                         <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
-                            <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                                <span className="w-8 h-8 rounded-full bg-brand-yellow/20 flex items-center justify-center text-brand-yellow-dark">1</span>
+                            <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
+                                <span className="w-10 h-10 rounded-full bg-brand-yellow/20 flex items-center justify-center text-brand-yellow-dark text-lg">1</span>
                                 Pilih Base
                             </h2>
 
@@ -244,8 +257,8 @@ export default function CustomizerPage() {
                     </div>
 
                     {/* MIDDLE COLUMN: PREVIEW */}
-                    <div className="lg:col-span-5 flex flex-col">
-                        <div className="flex-grow bg-white rounded-3xl shadow-lg border border-gray-100 relative overflow-hidden flex items-center justify-center min-h-[400px] lg:min-h-auto">
+                    <div className="lg:col-span-5 flex flex-col lg:sticky lg:top-28">
+                        <div className="flex-grow bg-white rounded-3xl shadow-lg border border-gray-100 relative overflow-hidden flex items-center justify-center min-h-[400px] aspect-square">
                             {/* Background Pattern */}
                             <div className="absolute inset-0 opacity-5" style={{
                                 backgroundImage: 'radial-gradient(#10B981 1px, transparent 1px)',
@@ -268,7 +281,7 @@ export default function CustomizerPage() {
                                     <ZoomIn size={20} />
                                 </button>
                                 <button
-                                    onClick={() => setState(s => ({ ...s, zoom: Math.max(s.zoom - 0.1, 0.5) }))}
+                                    onClick={() => setState(s => ({ ...s, zoom: Math.max(s.zoom - 0.1, 0.4) }))}
                                     className="bg-white p-2.5 rounded-full shadow-lg border border-gray-100 hover:bg-gray-50 text-gray-700"
                                 >
                                     <ZoomOut size={20} />
@@ -276,40 +289,76 @@ export default function CustomizerPage() {
                             </div>
                         </div>
                         <div className="mt-4 text-center text-gray-400 text-sm">
-                            Drag slots below to customize charms
+                            Scroll ke bawah untuk melihat ringkasan pesanan
                         </div>
                     </div>
 
                     {/* RIGHT COLUMN: CHARMS & ACTIONS */}
-                    <div className="lg:col-span-4 lg:h-[calc(100vh-8rem)] flex flex-col gap-6 lg:overflow-y-auto custom-scrollbar">
+                    <div className="lg:col-span-4 flex flex-col gap-6">
 
                         {/* Charms Selector */}
-                        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100 flex-grow">
-                            <h2 className="text-xl font-bold text-gray-900 mb-6 flex items-center gap-2">
-                                <span className="w-8 h-8 rounded-full bg-brand-pink/20 flex items-center justify-center text-brand-pink-dark">2</span>
+                        <div className="bg-white rounded-2xl p-6 shadow-sm border border-gray-100">
+                            <h2 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
+                                <span className="w-10 h-10 rounded-full bg-brand-pink/20 flex items-center justify-center text-brand-pink-dark text-lg">2</span>
                                 Pilih Charms
                             </h2>
 
-                            <SlotControl label="Slot C (Atas)" slot="C" />
-                            <SlotControl label="Slot B (Tengah)" slot="B" />
-                            <SlotControl label="Slot A (Bawah)" slot="A" />
+                            <SlotControl label="Atas" slot="C" />
+                            <SlotControl label="Tengah" slot="B" />
+                            <SlotControl label="Bawah" slot="A" />
                         </div>
 
-                        {/* Actions Panel */}
+                        {/* Summary & Visualization */}
                         <div className="bg-white rounded-2xl p-6 shadow-lg border border-brand-mint/20 relative overflow-hidden">
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-brand-mint/10 rounded-fullblur-3xl -mr-16 -mt-16 pointer-events-none" />
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-brand-mint/10 rounded-full blur-3xl -mr-16 -mt-16 pointer-events-none" />
 
-                            <h3 className="font-bold text-gray-900 mb-4">Ringkasan Pesanan</h3>
-                            <div className="space-y-3 mb-6 text-sm text-gray-600">
-                                <div className="flex justify-between">
-                                    <span>Base Model:</span>
-                                    <span className="font-medium text-gray-900">Model {state.baseIndex + 1}</span>
-                                </div>
-                                <div className="flex justify-between">
-                                    <span>Charms:</span>
-                                    <span className="font-medium text-gray-900">
-                                        {[state.slots.A, state.slots.B, state.slots.C].filter(x => x !== null).length} items selected
-                                    </span>
+                            <h3 className="text-2xl font-bold text-gray-900 mb-6 flex items-center gap-3">
+                                <span className="w-10 h-10 rounded-full bg-brand-mint/20 flex items-center justify-center text-brand-mint-dark text-lg">3</span>
+                                Ringkasan Pesanan
+                            </h3>
+
+                            {/* Visual Summary */}
+                            <div className="mb-6 bg-gray-50 rounded-xl p-4 border border-gray-100">
+                                <div className="text-xs font-semibold text-gray-500 mb-2 uppercase tracking-wider">Preview Hasil</div>
+
+                                <div className="flex gap-4 items-center">
+                                    {/* Main Preview Thumbnail */}
+                                    <div className="relative w-24 h-24 bg-white rounded-lg border border-gray-200 overflow-hidden flex-shrink-0">
+                                        {previewUrl ? (
+                                            <Image src={previewUrl} alt="Preview" fill className="object-contain" />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center text-gray-300 transform scale-50">Loading...</div>
+                                        )}
+                                    </div>
+
+                                    {/* Selected Items List */}
+                                    <div className="flex-grow space-y-2">
+                                        <div className="flex -space-x-2">
+                                            {/* Base */}
+                                            <div className="w-10 h-10 rounded-full bg-white border border-gray-200 relative overflow-hidden" title="Base">
+                                                <Image src={ASSETS.keychains[state.baseIndex]} alt="Base" fill className="object-contain p-1" />
+                                            </div>
+                                            {/* Charms */}
+                                            {state.slots.A !== null && (
+                                                <div className="w-10 h-10 rounded-full bg-white border border-gray-200 relative overflow-hidden" title="Slot A">
+                                                    <Image src={ASSETS.animals[state.slots.A]} alt="Charm A" fill className="object-contain p-1" />
+                                                </div>
+                                            )}
+                                            {state.slots.B !== null && (
+                                                <div className="w-10 h-10 rounded-full bg-white border border-gray-200 relative overflow-hidden" title="Slot B">
+                                                    <Image src={ASSETS.animals[state.slots.B]} alt="Charm B" fill className="object-contain p-1" />
+                                                </div>
+                                            )}
+                                            {state.slots.C !== null && (
+                                                <div className="w-10 h-10 rounded-full bg-white border border-gray-200 relative overflow-hidden" title="Slot C">
+                                                    <Image src={ASSETS.animals[state.slots.C]} alt="Charm C" fill className="object-contain p-1" />
+                                                </div>
+                                            )}
+                                        </div>
+                                        <p className="text-xs text-gray-500">
+                                            Base + {[state.slots.A, state.slots.B, state.slots.C].filter(x => x !== null).length} Charms
+                                        </p>
+                                    </div>
                                 </div>
                             </div>
 
@@ -325,19 +374,22 @@ export default function CustomizerPage() {
                                 <div className="grid grid-cols-2 gap-3">
                                     <button
                                         onClick={handleDownload}
-                                        className="flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-3 rounded-xl transition-colors"
+                                        className="flex items-center justify-center gap-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-semibold py-3 rounded-xl transition-colors text-sm"
                                     >
-                                        <Download size={18} />
-                                        Preview
+                                        <Download size={16} />
+                                        Save Image
                                     </button>
                                     <button
                                         onClick={handleReset}
-                                        className="flex items-center justify-center gap-2 bg-gray-100 hover:bg-red-50 text-gray-700 hover:text-red-600 font-semibold py-3 rounded-xl transition-colors"
+                                        className="flex items-center justify-center gap-2 bg-gray-100 hover:bg-red-50 text-gray-700 hover:text-red-600 font-semibold py-3 rounded-xl transition-colors text-sm"
                                     >
-                                        <RefreshCw size={18} />
+                                        <RefreshCw size={16} />
                                         Reset
                                     </button>
                                 </div>
+                                <p className="text-xs text-center text-gray-400 mt-2">
+                                    *Simpan gambar desain sebelum order untuk dikirimkan ke admin.
+                                </p>
                             </div>
                         </div>
                     </div>

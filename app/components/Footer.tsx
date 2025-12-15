@@ -16,7 +16,7 @@ export default function Footer() {
                                     src={ASSETS.logo}
                                     alt="Ongoing Project"
                                     fill
-                                    className="object-contain object-left"
+                                    className="object-contain object-left invert brightness-0"
                                 />
                             </div>
                         </Link>

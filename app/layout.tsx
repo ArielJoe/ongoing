@@ -9,7 +9,7 @@ const poppins = Poppins({
 });
 
 export const metadata: Metadata = {
-  title: "Ongoing Project | Custom Keychains",
+  title: "Ongoing Project",
   description: "Create your own custom keychain with our interactive design tool.",
 };
 
