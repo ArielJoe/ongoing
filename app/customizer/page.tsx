@@ -32,6 +32,14 @@ export default function CustomizerPage() {
         z: number; // Scale
     };
 
+    // Helper: Safe ID Generator
+    const generateId = () => {
+        if (typeof crypto !== 'undefined' && crypto.randomUUID) {
+            return crypto.randomUUID();
+        }
+        return Math.random().toString(36).substring(2, 15);
+    };
+
     // State
     const [state, setState] = useState<{
         mode: Mode;
@@ -119,18 +127,10 @@ export default function CustomizerPage() {
     };
 
     // Helper: Screen to Canvas Coords
-    const getCanvasCoords = (e: React.MouseEvent | React.TouchEvent | MouseEvent | TouchEvent, canvas: HTMLCanvasElement) => {
+    const getCanvasCoords = (e: React.PointerEvent, canvas: HTMLCanvasElement) => {
         const rect = canvas.getBoundingClientRect();
-        let clientX, clientY;
-
-        if ('touches' in e) {
-            const touch = e.touches[0] || e.changedTouches[0];
-            clientX = touch.clientX;
-            clientY = touch.clientY;
-        } else {
-            clientX = (e as React.MouseEvent).clientX;
-            clientY = (e as React.MouseEvent).clientY;
-        }
+        const clientX = e.clientX;
+        const clientY = e.clientY;
 
         const scaleX = CANVAS_SIZE / rect.width;
         const scaleY = CANVAS_SIZE / rect.height;
@@ -294,9 +294,9 @@ export default function CustomizerPage() {
         if (newMode === 'manual' && state.mode === 'fixed') {
             // Convert slots to manual items
             const newItems: CharmItem[] = [];
-            if (state.slots.A !== null) newItems.push({ id: crypto.randomUUID(), charmIndex: state.slots.A, x: CHARM_POSITIONS.A.x, y: CHARM_POSITIONS.A.y, z: CHARM_POSITIONS.A.scale });
-            if (state.slots.B !== null) newItems.push({ id: crypto.randomUUID(), charmIndex: state.slots.B, x: CHARM_POSITIONS.B.x, y: CHARM_POSITIONS.B.y, z: CHARM_POSITIONS.B.scale });
-            if (state.slots.C !== null) newItems.push({ id: crypto.randomUUID(), charmIndex: state.slots.C, x: CHARM_POSITIONS.C.x, y: CHARM_POSITIONS.C.y, z: CHARM_POSITIONS.C.scale });
+            if (state.slots.A !== null) newItems.push({ id: generateId(), charmIndex: state.slots.A, x: CHARM_POSITIONS.A.x, y: CHARM_POSITIONS.A.y, z: CHARM_POSITIONS.A.scale });
+            if (state.slots.B !== null) newItems.push({ id: generateId(), charmIndex: state.slots.B, x: CHARM_POSITIONS.B.x, y: CHARM_POSITIONS.B.y, z: CHARM_POSITIONS.B.scale });
+            if (state.slots.C !== null) newItems.push({ id: generateId(), charmIndex: state.slots.C, x: CHARM_POSITIONS.C.x, y: CHARM_POSITIONS.C.y, z: CHARM_POSITIONS.C.scale });
 
             setState(s => ({ ...s, mode: 'manual', manualItems: newItems }));
             setIsEditing(true); // Default to edit mode
@@ -310,25 +310,21 @@ export default function CustomizerPage() {
     };
 
     // -------------------
-    // CANVAS INTERACTION (MANUAL MODE)
+    // CANVAS INTERACTION (MANUAL MODE - POINTER EVENTS)
     // -------------------
-    const handleCanvasMouseDown = (e: React.MouseEvent | React.TouchEvent) => {
+    const handlePointerDown = (e: React.PointerEvent) => {
         if (state.mode !== 'manual' || !isEditing) return;
         const canvas = canvasRef.current;
         if (!canvas) return;
 
-        // Prevent scrolling on touch
-        if ('touches' in e) {
-            // e.preventDefault(); // Don't prevent default here instantly or click might fail? 
-            // Better to handle in the container specific touch-action
-        }
+        e.preventDefault();
+        (e.target as Element).setPointerCapture(e.pointerId);
 
         const coords = getCanvasCoords(e, canvas);
 
         const clickedItem = [...state.manualItems].reverse().find(item => {
             const dx = coords.x - item.x;
             const dy = coords.y - item.y;
-            // Hit radius increased to matches charm scale (~0.28/2 = 0.14)
             return (dx * dx + dy * dy) < (0.14 * 0.14);
         });
 
@@ -338,10 +334,10 @@ export default function CustomizerPage() {
         }
     };
 
-    const handleCanvasMouseMove = (e: React.MouseEvent | React.TouchEvent) => {
+    const handlePointerMove = (e: React.PointerEvent) => {
         if (!draggedItem || state.mode !== 'manual' || !isEditing) return;
-        if ('touches' in e && e.cancelable) e.preventDefault(); // Prevent scrolling while dragging
 
+        e.preventDefault();
         const canvas = canvasRef.current;
         if (!canvas) return;
 
@@ -357,10 +353,11 @@ export default function CustomizerPage() {
         }));
     };
 
-    const handleCanvasMouseUp = () => {
+    const handlePointerUp = (e: React.PointerEvent) => {
+        (e.target as Element).releasePointerCapture(e.pointerId);
         if (draggedItem) {
             setDraggedItem(null);
-            updatePreview(); // Update preview when drag ends
+            updatePreview();
         }
     };
 
@@ -377,13 +374,23 @@ export default function CustomizerPage() {
 
         const canvas = canvasRef.current;
         if (!canvas) return;
-        const coords = getCanvasCoords(e, canvas);
+
+        // Use standard mouse event for drop as it is a DragEvent not PointerEvent
+        // We need to adapt getCanvasCoords or manually calc.
+        // Let's duplicate basic calc here for DragEvent safety:
+        const rect = canvas.getBoundingClientRect();
+        const scaleX = CANVAS_SIZE / rect.width;
+        const scaleY = CANVAS_SIZE / rect.height;
+        const cx = rect.width / 2;
+        const cy = rect.height / 2;
+        const relX = ((e.clientX - rect.left - cx) * scaleX) / state.zoom + (CANVAS_SIZE / 2);
+        const relY = ((e.clientY - rect.top - cy) * scaleY) / state.zoom + (CANVAS_SIZE / 2);
 
         const newItem: CharmItem = {
-            id: crypto.randomUUID(),
+            id: generateId(),
             charmIndex,
-            x: coords.x,
-            y: coords.y,
+            x: relX / CANVAS_SIZE,
+            y: relY / CANVAS_SIZE,
             z: 0.28
         };
 
@@ -512,14 +519,11 @@ export default function CustomizerPage() {
                                 ref={canvasRef}
                                 width={CANVAS_SIZE}
                                 height={CANVAS_SIZE}
-                                className="w-full h-full object-contain"
-                                onMouseDown={handleCanvasMouseDown}
-                                onMouseMove={handleCanvasMouseMove}
-                                onMouseUp={handleCanvasMouseUp}
-                                onMouseLeave={handleCanvasMouseUp}
-                                onTouchStart={handleCanvasMouseDown}
-                                onTouchMove={handleCanvasMouseMove}
-                                onTouchEnd={handleCanvasMouseUp}
+                                className="w-full h-full object-contain touch-action-none"
+                                onPointerDown={handlePointerDown}
+                                onPointerMove={handlePointerMove}
+                                onPointerUp={handlePointerUp}
+                                onPointerLeave={handlePointerUp}
                             />
 
                             {/* Zoom Buttons */}
@@ -586,7 +590,7 @@ export default function CustomizerPage() {
                                                     className="aspect-square bg-gray-50 rounded-lg border border-gray-200 cursor-move hover:border-brand-mint overflow-hidden relative"
                                                     onClick={() => {
                                                         if (isEditing) {
-                                                            const newItem: CharmItem = { id: crypto.randomUUID(), charmIndex: idx, x: 0.5, y: 0.5, z: 0.28 };
+                                                            const newItem: CharmItem = { id: generateId(), charmIndex: idx, x: 0.5, y: 0.5, z: 0.28 };
                                                             setState(s => ({ ...s, manualItems: [...s.manualItems, newItem] }));
                                                             setTimeout(updatePreview, 100);
                                                         }
