@@ -2,6 +2,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { Menu, X } from "lucide-react";
 import { useState } from "react";
@@ -29,7 +30,10 @@ export default function Navbar() {
                 <div className="flex justify-between items-center h-20">
                     {/* Logo */}
                     <Link href="/" className="flex items-center gap-2">
-                        <span className="font-bold text-xl tracking-tight text-brand-dark">Ongoing Project</span>
+                        {/* <span className="font-bold text-xl tracking-tight text-brand-dark">Ongoing Project</span> */}
+                        <div className="relative h-32 w-72 -my-6">
+                            <Image src="/logo/logo.png" alt="Ongoing Project Logo" fill className="object-contain object-left" priority />
+                        </div>
                     </Link>
 
                     {/* Desktop Menu */}

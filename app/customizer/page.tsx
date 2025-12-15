@@ -443,9 +443,8 @@ export default function CustomizerPage() {
     // -------------------
     const handleWhatsApp = () => {
         const text = `Halo Ongoing Project! Saya mau order custom keychain.\n\n` +
-            `*Gambar desain saya lampirkan manual setelah pesan ini.*\n\n` +
-            `Mohon info total harganya ya! Terima kasih.`;
-        window.open(`https://wa.me/6288218541267?text=${encodeURIComponent(text)}`, '_blank');
+            `*Gambar desain saya lampirkan.*`;
+        window.open(`https://wa.me/6285189067996?text=${encodeURIComponent(text)}`, '_blank');
     };
 
     const handleDownload = () => {
