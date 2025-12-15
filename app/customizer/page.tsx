@@ -127,7 +127,7 @@ export default function CustomizerPage() {
     };
 
     // Helper: Screen to Canvas Coords
-    const getCanvasCoords = (e: React.PointerEvent, canvas: HTMLCanvasElement) => {
+    const getCanvasCoords = (e: { clientX: number, clientY: number }, canvas: HTMLCanvasElement) => {
         const rect = canvas.getBoundingClientRect();
         const clientX = e.clientX;
         const clientY = e.clientY;
@@ -309,6 +309,19 @@ export default function CustomizerPage() {
         }
     };
 
+    // Drag State Refs (for high-frequency updates without stale closures)
+    const dragState = useRef<{
+        isDragging: boolean;
+        draggedItemId: string | null;
+        startOffset: { x: number, y: number };
+    }>({
+        isDragging: false,
+        draggedItemId: null,
+        startOffset: { x: 0, y: 0 }
+    });
+
+    const [cursor, setCursor] = useState<'default' | 'grab' | 'grabbing'>('default');
+
     // -------------------
     // CANVAS INTERACTION (MANUAL MODE - POINTER EVENTS)
     // -------------------
@@ -318,47 +331,83 @@ export default function CustomizerPage() {
         if (!canvas) return;
 
         e.preventDefault();
-        (e.target as Element).setPointerCapture(e.pointerId);
 
         const coords = getCanvasCoords(e, canvas);
 
+        // Check hit (Reverse to check top items first)
         const clickedItem = [...state.manualItems].reverse().find(item => {
             const dx = coords.x - item.x;
             const dy = coords.y - item.y;
-            return (dx * dx + dy * dy) < (0.14 * 0.14);
+            return (dx * dx + dy * dy) < (0.16 * 0.16); // Increased hit radius slightly
         });
 
         if (clickedItem) {
+            // Start dragging
+            dragState.current = {
+                isDragging: true,
+                draggedItemId: clickedItem.id,
+                startOffset: { x: coords.x - clickedItem.x, y: coords.y - clickedItem.y }
+            };
+            setCursor('grabbing');
+
+            // Capture pointer
+            try {
+                (e.target as Element).setPointerCapture(e.pointerId);
+            } catch (err) { }
+
+            // Trigger a re-render to update the visual selection immediately
             setDraggedItem(clickedItem.id);
-            setDragOffset({ x: coords.x - clickedItem.x, y: coords.y - clickedItem.y });
         }
     };
 
     const handlePointerMove = (e: React.PointerEvent) => {
-        if (!draggedItem || state.mode !== 'manual' || !isEditing) return;
-
-        e.preventDefault();
         const canvas = canvasRef.current;
         if (!canvas) return;
+        e.preventDefault();
 
         const coords = getCanvasCoords(e, canvas);
 
-        setState(s => ({
-            ...s,
-            manualItems: s.manualItems.map(item =>
-                item.id === draggedItem
-                    ? { ...item, x: coords.x - dragOffset.x, y: coords.y - dragOffset.y }
-                    : item
-            )
-        }));
+        // 1. Handle Dragging
+        if (dragState.current.isDragging && dragState.current.draggedItemId) {
+            const { draggedItemId, startOffset } = dragState.current;
+
+            setState(s => ({
+                ...s,
+                manualItems: s.manualItems.map(item =>
+                    item.id === draggedItemId
+                        ? { ...item, x: coords.x - startOffset.x, y: coords.y - startOffset.y }
+                        : item
+                )
+            }));
+            return;
+        }
+
+        // 2. Handle Hover (only if in manual mode and editing)
+        if (state.mode === 'manual' && isEditing) {
+            const hoveredItem = [...state.manualItems].reverse().find(item => {
+                const dx = coords.x - item.x;
+                const dy = coords.y - item.y;
+                return (dx * dx + dy * dy) < (0.16 * 0.16);
+            });
+            setCursor(hoveredItem ? 'grab' : 'default');
+        }
     };
 
     const handlePointerUp = (e: React.PointerEvent) => {
-        (e.target as Element).releasePointerCapture(e.pointerId);
-        if (draggedItem) {
-            setDraggedItem(null);
-            updatePreview();
-        }
+        if (!dragState.current.isDragging) return;
+
+        // Release capture
+        try {
+            if ((e.target as Element).hasPointerCapture(e.pointerId)) {
+                (e.target as Element).releasePointerCapture(e.pointerId);
+            }
+        } catch (err) { }
+
+        // End drag
+        dragState.current = { isDragging: false, draggedItemId: null, startOffset: { x: 0, y: 0 } };
+        setCursor('grab'); // Return to grab cursor since we are likely still over the item
+        setDraggedItem(null); // Clear React state for rendering selection
+        updatePreview();
     };
 
     // Drag from Sidebar
@@ -375,22 +424,13 @@ export default function CustomizerPage() {
         const canvas = canvasRef.current;
         if (!canvas) return;
 
-        // Use standard mouse event for drop as it is a DragEvent not PointerEvent
-        // We need to adapt getCanvasCoords or manually calc.
-        // Let's duplicate basic calc here for DragEvent safety:
-        const rect = canvas.getBoundingClientRect();
-        const scaleX = CANVAS_SIZE / rect.width;
-        const scaleY = CANVAS_SIZE / rect.height;
-        const cx = rect.width / 2;
-        const cy = rect.height / 2;
-        const relX = ((e.clientX - rect.left - cx) * scaleX) / state.zoom + (CANVAS_SIZE / 2);
-        const relY = ((e.clientY - rect.top - cy) * scaleY) / state.zoom + (CANVAS_SIZE / 2);
+        const coords = getCanvasCoords(e, canvas);
 
         const newItem: CharmItem = {
             id: generateId(),
             charmIndex,
-            x: relX / CANVAS_SIZE,
-            y: relY / CANVAS_SIZE,
+            x: coords.x,
+            y: coords.y,
             z: 0.28
         };
 
@@ -513,13 +553,14 @@ export default function CustomizerPage() {
                             onWheel={(e) => e.preventDefault()}
                             style={{ touchAction: 'none' }}
                         >
-                            <div className={`absolute inset-0 transition-opacity duration-300 ${isEditing ? 'opacity-5' : 'opacity-0'}`} style={{ backgroundImage: 'radial-gradient(#10B981 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
+                            <div className={`absolute inset-0 pointer-events-none transition-opacity duration-300 ${isEditing ? 'opacity-5' : 'opacity-0'}`} style={{ backgroundImage: 'radial-gradient(#10B981 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
 
                             <canvas
                                 ref={canvasRef}
                                 width={CANVAS_SIZE}
                                 height={CANVAS_SIZE}
-                                className="w-full h-full object-contain touch-action-none"
+                                className="w-full h-full object-contain"
+                                style={{ touchAction: 'none', cursor: cursor }}
                                 onPointerDown={handlePointerDown}
                                 onPointerMove={handlePointerMove}
                                 onPointerUp={handlePointerUp}
