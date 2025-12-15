@@ -504,6 +504,10 @@ export default function CustomizerPage() {
                             <div className={`absolute inset-0 transition-opacity duration-300 ${isEditing ? 'opacity-5' : 'opacity-0'}`} style={{ backgroundImage: 'radial-gradient(#10B981 1px, transparent 1px)', backgroundSize: '20px 20px' }} />
 
                             <canvas
+                                ref={canvasRef}
+                                width={CANVAS_SIZE}
+                                height={CANVAS_SIZE}
+                                className="w-full h-full object-contain"
                                 onMouseDown={handleCanvasMouseDown}
                                 onMouseMove={handleCanvasMouseMove}
                                 onMouseUp={handleCanvasMouseUp}
