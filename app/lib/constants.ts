@@ -1,0 +1,47 @@
+
+export const ASSETS = {
+  logo: "/logo/logo-white.png",
+  keychains: [
+    "/keychain/1.png",
+    "/keychain/2.png",
+    "/keychain/3.png",
+    "/keychain/4.png",
+    "/keychain/5.png",
+    "/keychain/6.png",
+    "/keychain/7.png",
+    "/keychain/8.png",
+  ],
+  animals: [
+    "/animal/1.png",
+    "/animal/2.png",
+    "/animal/3.png",
+    "/animal/4.png",
+    "/animal/5.png",
+    "/animal/6.png",
+    "/animal/7.png",
+    "/animal/8.png",
+    "/animal/9.png",
+    "/animal/10.png",
+    "/animal/11.png",
+    "/animal/12.png",
+    "/animal/13.png",
+  ],
+  otherProducts: [
+    { src: "/asset/Bagtag Hello I_m.jpg", name: "Bagtag Hello I'm" },
+    { src: "/asset/Bucket Hat 1.png", name: "Bucket Hat V1" },
+    { src: "/asset/Bucket Hat 2.png", name: "Bucket Hat V2" },
+    { src: "/asset/Keychain V2.png", name: "Keychain V2" },
+    { src: "/asset/Plush.png", name: "Plush Toy" },
+    { src: "/asset/Pouch.png", name: "Pouch" },
+    { src: "/asset/Shirt.jpg", name: "T-Shirt" },
+    { src: "/asset/bag.png", name: "Tote Bag" },
+    { src: "/asset/keychain heart.png", name: "Heart Keychain" },
+  ],
+  padelSeries: [
+    "/padel/Padel tennis-01.jpg",
+    "/padel/Padel tennis-02.jpg",
+    "/padel/Padel tennis-03.jpg",
+    "/padel/Padel tennis-04.jpg",
+    "/padel/cover.jpg",
+  ]
+};
